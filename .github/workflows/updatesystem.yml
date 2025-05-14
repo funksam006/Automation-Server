@@ -1,0 +1,15 @@
+name: System Update
+
+on:
+  workflow_dispatch:  # Manual trigger
+
+jobs:
+  update-system:
+    runs-on: self-hosted  # Important: Only works if your runner is self-hosted
+
+    steps:
+      - name: Update and Upgrade Packages
+        run: |
+          sudo apt-get update
+          sudo apt-get upgrade -y
+          sudo apt-get autoremove -y
