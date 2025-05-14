@@ -1,11 +1,12 @@
 name: Backup and Upload MySQL Databases
 
 on:
-  workflow_dispatch:
+  workflow_dispatch:  # Manual trigger for the workflow
 
 jobs:
   backup-and-upload:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted  # Use self-hosted runner
+
     env:
       MYSQL_HOST: ${{ secrets.MYSQL_HOST }}
       MYSQL_USER: ${{ secrets.MYSQL_USER }}
@@ -32,4 +33,11 @@ jobs:
         run: |
           TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S")
           TAR_NAME="mysql_backup_$TIMESTAMP.tar.gz"
-          tar -czf "$TAR_NAME" -C dumps_
+          tar -czf "$TAR_NAME" -C dumps .
+          echo "TAR_NAME=$TAR_NAME" >> $GITHUB_ENV
+
+      - name: Clean up old backups on remote server (older than 2 days)
+        run: |
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > private_key.pem
+          chmod 600 private_key.pem
+          ssh -i private_key.pem -o StrictHostKeyChecking=no_
