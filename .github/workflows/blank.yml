@@ -1,0 +1,57 @@
+pipeline {
+    agent any
+
+    environment {
+        SOURCE_DIR = '/var/www/html'
+        LOCAL_BACKUP_DIR = '/opt/backups'
+        TIMESTAMP = "${new Date().format('yyyyMMdd_HHmmss')}"
+        BACKUP_FILE = "backup_${TIMESTAMP}.tar.gz"
+        REMOTE_USER = 'backupuser'
+        REMOTE_HOST = '192.168.1.100'
+        REMOTE_DIR = '/home/backupuser/backups'
+    }
+
+    stages {
+        stage('Create Local Backup Directory') {
+            steps {
+                sh "mkdir -p ${LOCAL_BACKUP_DIR}"
+            }
+        }
+
+        stage('Create Backup') {
+            steps {
+                sh "tar -czf ${LOCAL_BACKUP_DIR}/${BACKUP_FILE} -C ${SOURCE_DIR} ."
+            }
+        }
+
+        stage('Transfer to Remote System') {
+            steps {
+                withCredentials([sshUserPrivateKey(credentialsId: 'ssh-key-id', keyFileVariable: 'SSH_KEY')]) {
+                    sh """
+                        ssh -i $SSH_KEY -o StrictHostKeyChecking=no ${REMOTE_USER}@${REMOTE_HOST} "mkdir -p ${REMOTE_DIR}"
+                        scp -i $SSH_KEY -o StrictHostKeyChecking=no ${LOCAL_BACKUP_DIR}/${BACKUP_FILE} ${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_DIR}/
+                    """
+                }
+            }
+        }
+
+        stage('Verify Remote Backup') {
+            steps {
+                withCredentials([sshUserPrivateKey(credentialsId: 'ssh-key-id', keyFileVariable: 'SSH_KEY')]) {
+                    sh """
+                        ssh -i $SSH_KEY -o StrictHostKeyChecking=no ${REMOTE_USER}@${REMOTE_HOST} "ls -lh ${REMOTE_DIR}/${BACKUP_FILE}"
+                    """
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "Backup and transfer completed successfully."
+        }
+        failure {
+            echo "Backup or transfer failed!"
+        }
+    }
+}
