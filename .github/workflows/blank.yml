@@ -1,57 +1,44 @@
-pipeline {
-    agent any
+name: Backup and Transfer
 
-    environment {
-        SOURCE_DIR = '/var/www/html'
-        LOCAL_BACKUP_DIR = '/opt/backups'
-        TIMESTAMP = "${new Date().format('yyyyMMdd_HHmmss')}"
-        BACKUP_FILE = "backup_${TIMESTAMP}.tar.gz"
-        REMOTE_USER = 'backupuser'
-        REMOTE_HOST = '192.168.1.100'
-        REMOTE_DIR = '/home/backupuser/backups'
-    }
+on:
+  workflow_dispatch:  # Allows manual trigger
 
-    stages {
-        stage('Create Local Backup Directory') {
-            steps {
-                sh "mkdir -p ${LOCAL_BACKUP_DIR}"
-            }
-        }
+jobs:
+  backup:
+    runs-on: ubuntu-latest
 
-        stage('Create Backup') {
-            steps {
-                sh "tar -czf ${LOCAL_BACKUP_DIR}/${BACKUP_FILE} -C ${SOURCE_DIR} ."
-            }
-        }
+    env:
+      SOURCE_DIR: /var/www/html
+      LOCAL_BACKUP_DIR: /tmp/backups
+      REMOTE_USER: backupuser
+      REMOTE_HOST: 192.168.1.100
+      REMOTE_DIR: /home/backupuser/backups
 
-        stage('Transfer to Remote System') {
-            steps {
-                withCredentials([sshUserPrivateKey(credentialsId: 'ssh-key-id', keyFileVariable: 'SSH_KEY')]) {
-                    sh """
-                        ssh -i $SSH_KEY -o StrictHostKeyChecking=no ${REMOTE_USER}@${REMOTE_HOST} "mkdir -p ${REMOTE_DIR}"
-                        scp -i $SSH_KEY -o StrictHostKeyChecking=no ${LOCAL_BACKUP_DIR}/${BACKUP_FILE} ${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_DIR}/
-                    """
-                }
-            }
-        }
+    steps:
+      - name: Set up timestamp
+        id: vars
+        run: echo "timestamp=$(date +%Y%m%d_%H%M%S)" >> "$GITHUB_OUTPUT"
 
-        stage('Verify Remote Backup') {
-            steps {
-                withCredentials([sshUserPrivateKey(credentialsId: 'ssh-key-id', keyFileVariable: 'SSH_KEY')]) {
-                    sh """
-                        ssh -i $SSH_KEY -o StrictHostKeyChecking=no ${REMOTE_USER}@${REMOTE_HOST} "ls -lh ${REMOTE_DIR}/${BACKUP_FILE}"
-                    """
-                }
-            }
-        }
-    }
+      - name: Create local backup directory
+        run: mkdir -p $LOCAL_BACKUP_DIR
 
-    post {
-        success {
-            echo "Backup and transfer completed successfully."
-        }
-        failure {
-            echo "Backup or transfer failed!"
-        }
-    }
-}
+      - name: Create backup archive
+        run: |
+          BACKUP_FILE="backup_${{ steps.vars.outputs.timestamp }}.tar.gz"
+          tar -czf "$LOCAL_BACKUP_DIR/$BACKUP_FILE" -C "$SOURCE_DIR" .
+          echo "backup_file=$BACKUP_FILE" >> $GITHUB_ENV
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+
+      - name: Transfer backup to remote host
+        run: |
+          ssh -o StrictHostKeyChecking=no $REMOTE_USER@$REMOTE_HOST "mkdir -p $REMOTE_DIR"
+          scp -o StrictHostKeyChecking=no "$LOCAL_BACKUP_DIR/$backup_file" "$REMOTE_USER@$REMOTE_HOST:$REMOTE_DIR/"
+
+      - name: Verify remote backup
+        run: |
+          ssh -o StrictHostKeyChecking=no $REMOTE_USER@$REMOTE_HOST "ls -lh $REMOTE_DIR/$backup_file"
