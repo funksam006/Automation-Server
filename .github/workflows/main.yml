@@ -1,24 +1,22 @@
-name: Backup and Upload MySQL Databases
+name: Backup and Store MySQL Databases Locally
 
 on:
   workflow_dispatch:
 
 jobs:
-  backup-and-upload:
-    runs-on: self-hosted
+  backup-and-store:
+    runs-on: self-hosted  # or use ubuntu-latest depending on your preference
 
     env:
       MYSQL_HOST: ${{ secrets.MYSQL_HOST }}
       MYSQL_USER: ${{ secrets.MYSQL_USER }}
       MYSQL_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
-      SSH_HOST: ${{ secrets.SSH_HOST }}
-      SSH_USER: ${{ secrets.SSH_USER }}
 
     steps:
-      - name: Set up MySQL client and SSH
+      - name: Set up MySQL client
         run: |
           sudo apt-get update
-          sudo apt-get install -y mysql-client openssh-client
+          sudo apt-get install -y mysql-client
 
       - name: Dump all databases individually
         run: |
@@ -36,13 +34,8 @@ jobs:
           tar -czf "$TAR_NAME" -C dumps .
           echo "TAR_NAME=$TAR_NAME" >> $GITHUB_ENV
 
-      - name: Clean up old backups on remote server (older than 2 days)
+      - name: Store backup locally
         run: |
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > private_key.pem
-          chmod 600 private_key.pem
-          ssh -i private_key.pem "$SSH_USER@$SSH_HOST" \
-            'find /var/www/html/database_backup/ -name "mysql_backup_*.tar.gz" -type f -mtime +2 -exec rm -f {} \;'
-
-      - name: Upload tarball to remote server via SCP
-        run: |
-          scp -i private_key.pem "$TAR_NAME" "$SSH_USER@$SSH_HOST:/var/www/html/database_backup/"
+          mkdir -p ~/mysql_backups
+          mv "$TAR_NAME" ~/mysql_backups/
+          echo "Backup stored locally at ~/mysql_backups/$TAR_NAME"
