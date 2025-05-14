@@ -18,10 +18,10 @@ jobs:
       - name: Dump all databases individually
         run: |
           mkdir -p dumps
-          DBS=$(mysql -h $MYSQL_HOST -u $MYSQL_USER -p$MYSQL_PASSWORD -e "SHOW DATABASES;" | grep -Ev "(Database|information_schema|performance_schema|mysql|sys)")
+          DBS=$(sudo mysql -h $MYSQL_HOST -u $MYSQL_USER -p$MYSQL_PASSWORD -e "SHOW DATABASES;" | grep -Ev "(Database|information_schema|performance_schema|mysql|sys)")
           for DB in $DBS; do
             echo "Dumping $DB"
-            mysqldump -h $MYSQL_HOST -u $MYSQL_USER -p$MYSQL_PASSWORD $DB > dumps/${DB}.sql
+            sudo mysqldump -h $MYSQL_HOST -u $MYSQL_USER -p$MYSQL_PASSWORD $DB > dumps/${DB}.sql
           done
       - name: Create tar.gz with current date and time
         run: |
