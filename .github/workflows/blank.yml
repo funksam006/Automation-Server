@@ -1,44 +1,40 @@
-name: Backup and Transfer
-
+name: Backup and Upload MySQL Databases
 on:
-  workflow_dispatch:  # Allows manual trigger
-
+  workflow_dispatch:
 jobs:
-  backup:
+  backup-and-upload:
     runs-on: ubuntu-latest
-
     env:
-      SOURCE_DIR: /var/www/html
-      LOCAL_BACKUP_DIR: /tmp/backups
-      REMOTE_USER: backupuser
-      REMOTE_HOST: 192.168.1.100
-      REMOTE_DIR: /home/backupuser/backups
-
+      MYSQL_HOST: ${{ secrets.MYSQL_HOST }}
+      MYSQL_USER: ${{ secrets.MYSQL_USER }}
+      MYSQL_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
+      SSH_HOST: ${{ secrets.SSH_HOST }}
+      SSH_USER: ${{ secrets.SSH_USER }}
     steps:
-      - name: Set up timestamp
-        id: vars
-        run: echo "timestamp=$(date +%Y%m%d_%H%M%S)" >> "$GITHUB_OUTPUT"
-
-      - name: Create local backup directory
-        run: mkdir -p $LOCAL_BACKUP_DIR
-
-      - name: Create backup archive
+      - name: Set up MySQL client and SSH
         run: |
-          BACKUP_FILE="backup_${{ steps.vars.outputs.timestamp }}.tar.gz"
-          tar -czf "$LOCAL_BACKUP_DIR/$BACKUP_FILE" -C "$SOURCE_DIR" .
-          echo "backup_file=$BACKUP_FILE" >> $GITHUB_ENV
-
-      - name: Setup SSH key
+          sudo apt-get update
+          sudo apt-get install -y mysql-client openssh-client
+      - name: Dump all databases individually
         run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-
-      - name: Transfer backup to remote host
+          mkdir -p dumps
+          DBS=$(mysql -h $MYSQL_HOST -u $MYSQL_USER -p$MYSQL_PASSWORD -e "SHOW DATABASES;" | grep -Ev "(Database|information_schema|performance_schema|mysql|sys)")
+          for DB in $DBS; do
+            echo "Dumping $DB"
+            mysqldump -h $MYSQL_HOST -u $MYSQL_USER -p$MYSQL_PASSWORD $DB > dumps/${DB}.sql
+          done
+      - name: Create tar.gz with current date and time
         run: |
-          ssh -o StrictHostKeyChecking=no $REMOTE_USER@$REMOTE_HOST "mkdir -p $REMOTE_DIR"
-          scp -o StrictHostKeyChecking=no "$LOCAL_BACKUP_DIR/$backup_file" "$REMOTE_USER@$REMOTE_HOST:$REMOTE_DIR/"
-
-      - name: Verify remote backup
+          TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S")
+          TAR_NAME="mysql_backup_$TIMESTAMP.tar.gz"
+          tar -czf "$TAR_NAME" -C dumps .
+          echo "TAR_NAME=$TAR_NAME" >> $GITHUB_ENV
+      - name: Clean up old backups on remote server (older than 2 days)
         run: |
-          ssh -o StrictHostKeyChecking=no $REMOTE_USER@$REMOTE_HOST "ls -lh $REMOTE_DIR/$backup_file"
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > private_key.pem
+          chmod 600 private_key.pem
+          ssh -i private_key.pem -o StrictHostKeyChecking=no "$SSH_USER@$SSH_HOST" \
+            'find /var/www/html/database_backup/ -name "mysql_backup_*.tar.gz" -type f -mtime +2 -exec rm -f {} \;'
+      - name: Upload tarball to remote server via SCP
+        run: |
+          scp -i private_key.pem -o StrictHostKeyChecking=no "$TAR_NAME" "$SSH_USER@$SSH_HOST:/var/www/html/database_backup/"
