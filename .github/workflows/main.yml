@@ -1,11 +1,11 @@
 name: Backup and Upload MySQL Databases
 
 on:
-  workflow_dispatch:  # Manual trigger for the workflow
+  workflow_dispatch:
 
 jobs:
   backup-and-upload:
-    runs-on: self-hosted  # Use self-hosted runner
+    runs-on: self-hosted
 
     env:
       MYSQL_HOST: ${{ secrets.MYSQL_HOST }}
@@ -40,4 +40,9 @@ jobs:
         run: |
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > private_key.pem
           chmod 600 private_key.pem
-          ssh -i private_key.pem -o StrictHostKeyChecking=no_
+          ssh -i private_key.pem "$SSH_USER@$SSH_HOST" \
+            'find /var/www/html/database_backup/ -name "mysql_backup_*.tar.gz" -type f -mtime +2 -exec rm -f {} \;'
+
+      - name: Upload tarball to remote server via SCP
+        run: |
+          scp -i private_key.pem "$TAR_NAME" "$SSH_USER@$SSH_HOST:/var/www/html/database_backup/"
