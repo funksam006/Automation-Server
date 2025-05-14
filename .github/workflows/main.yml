@@ -1,6 +1,8 @@
 name: Backup and Upload MySQL Databases
+
 on:
   workflow_dispatch:
+
 jobs:
   backup-and-upload:
     runs-on: ubuntu-latest
@@ -10,11 +12,13 @@ jobs:
       MYSQL_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
       SSH_HOST: ${{ secrets.SSH_HOST }}
       SSH_USER: ${{ secrets.SSH_USER }}
+
     steps:
       - name: Set up MySQL client and SSH
         run: |
           sudo apt-get update
           sudo apt-get install -y mysql-client openssh-client
+
       - name: Dump all databases individually
         run: |
           mkdir -p dumps
@@ -23,18 +27,9 @@ jobs:
             echo "Dumping $DB"
             mysqldump -h $MYSQL_HOST -u $MYSQL_USER -p$MYSQL_PASSWORD $DB > dumps/${DB}.sql
           done
+
       - name: Create tar.gz with current date and time
         run: |
           TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S")
           TAR_NAME="mysql_backup_$TIMESTAMP.tar.gz"
-          tar -czf "$TAR_NAME" -C dumps .
-          echo "TAR_NAME=$TAR_NAME" >> $GITHUB_ENV
-      - name: Clean up old backups on remote server (older than 2 days)
-        run: |
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > private_key.pem
-          chmod 600 private_key.pem
-          ssh -i private_key.pem -o StrictHostKeyChecking=no "$SSH_USER@$SSH_HOST" \
-            'find /var/www/html/database_backup/ -name "mysql_backup_*.tar.gz" -type f -mtime +2 -exec rm -f {} \;'
-      - name: Upload tarball to remote server via SCP
-        run: |
-          scp -i private_key.pem -o StrictHostKeyChecking=no "$TAR_NAME" "$SSH_USER@$SSH_HOST:/var/www/html/database_backup/"
+          tar -czf "$TAR_NAME" -C dumps_
