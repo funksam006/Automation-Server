@@ -1,15 +1,27 @@
-name: System Update
+name: Project Backup via SSH
 
 on:
-  workflow_dispatch:  # Manual trigger
+  workflow_dispatch:  # Manually triggerable
+  schedule:
+    - cron: '0 3 * * *'  # Every day at 3 AM UTC
 
 jobs:
-  update-system:
-    runs-on: self-hosted  # Important: Only works if your runner is self-hosted
+  backup:
+    runs-on: ubuntu-latest
 
     steps:
-      - name: Update and Upgrade Packages
-        run: |
-          sudo apt-get update -y
-          sudo apt-get upgrade -y
-          sudo apt-get autoremove -y
+    - name: Set up SSH key
+      run: |
+        mkdir -p ~/.ssh
+        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+        ssh-keyscan -H ${{ secrets.REMOTE_HOST }} >> ~/.ssh/known_hosts
+        ssh-keyscan -H ${{ secrets.BACKUP_SERVER }} >> ~/.ssh/known_hosts
+
+    - name: Create tar.gz on remote host
+      run: |
+        ssh ${{ secrets.REMOTE_USER }}@${{ secrets.REMOTE_HOST }} "tar -czf /tmp/project_backup.tar.gz -C $(dirname ${{ secrets.PROJECT_PATH }}) $(basename ${{ secrets.PROJECT_PATH }})"
+
+    - name: Copy tar.gz to backup server
+      run: |
+        scp ${{ secrets.REMOTE_USER }}@${{ secrets.REMOTE_HOST }}:/tmp/project_backup.tar.gz ${{ secrets.BACKUP_USER }}@${{ secrets.BACKUP_SERVER }}:${{ secrets.BACKUP_PATH }}/project_backup_$(date +%F_%H-%M-%S).tar.gz
