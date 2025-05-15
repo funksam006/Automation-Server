@@ -1,27 +1,58 @@
-name: Project Backup via SSH
+name: Project Backup via SSH (Self-Hosted)
 
 on:
-  workflow_dispatch:  # Manually triggerable
+  workflow_dispatch:  # Manual trigger
   schedule:
-    - cron: '0 3 * * *'  # Every day at 3 AM UTC
+    - cron: '0 3 * * *'  # Daily at 3 AM UTC
 
 jobs:
   backup:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted  # Requires your own runner with network access to servers
 
     steps:
-    - name: Set up SSH key
+    - name: Validate Required Secrets
+      run: |
+        required_secrets=(SSH_PRIVATE_KEY REMOTE_HOST REMOTE_USER PROJECT_PATH BACKUP_SERVER BACKUP_USER BACKUP_PATH)
+        for secret in "${required_secrets[@]}"; do
+          if [ -z "${{ secrets[$secret] }}" ]; then
+            echo "❌ Missing secret: $secret"
+            exit 1
+          fi
+        done
+
+    - name: Set up SSH key and known_hosts
       run: |
         mkdir -p ~/.ssh
         echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
         chmod 600 ~/.ssh/id_rsa
-        ssh-keyscan -H ${{ secrets.REMOTE_HOST }} >> ~/.ssh/known_hosts
-        ssh-keyscan -H ${{ secrets.BACKUP_SERVER }} >> ~/.ssh/known_hosts
 
-    - name: Create tar.gz on remote host
-      run: |
-        ssh ${{ secrets.REMOTE_USER }}@${{ secrets.REMOTE_HOST }} "tar -czf /tmp/project_backup.tar.gz -C $(dirname ${{ secrets.PROJECT_PATH }}) $(basename ${{ secrets.PROJECT_PATH }})"
+        echo "🔍 Scanning SSH host keys..."
+        ssh-keyscan -H "${{ secrets.REMOTE_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null || echo "⚠️ Could not scan REMOTE_HOST"
+        ssh-keyscan -H "${{ secrets.BACKUP_SERVER }}" >> ~/.ssh/known_hosts 2>/dev/null || echo "⚠️ Could not scan BACKUP_SERVER"
 
-    - name: Copy tar.gz to backup server
+        echo "✅ SSH setup complete."
+
+    - name: Debug DNS resolution
       run: |
-        scp ${{ secrets.REMOTE_USER }}@${{ secrets.REMOTE_HOST }}:/tmp/project_backup.tar.gz ${{ secrets.BACKUP_USER }}@${{ secrets.BACKUP_SERVER }}:${{ secrets.BACKUP_PATH }}/project_backup_$(date +%F_%H-%M-%S).tar.gz
+        echo "🔧 Testing DNS and connectivity..."
+        nslookup "${{ secrets.REMOTE_HOST }}" || echo "⚠️ DNS failed for REMOTE_HOST"
+        nslookup "${{ secrets.BACKUP_SERVER }}" || echo "⚠️ DNS failed for BACKUP_SERVER"
+        ping -c 2 "${{ secrets.REMOTE_HOST }}" || echo "⚠️ Cannot reach REMOTE_HOST"
+        ping -c 2 "${{ secrets.BACKUP_SERVER }}" || echo "⚠️ Cannot reach BACKUP_SERVER"
+
+    - name: Create tar.gz on remote server
+      run: |
+        echo "📦 Creating archive on remote server..."
+        ssh "${{ secrets.REMOTE_USER }}@${{ secrets.REMOTE_HOST }}" "tar -czf /tmp/project_backup.tar.gz -C $(dirname '${{ secrets.PROJECT_PATH }}') $(basename '${{ secrets.PROJECT_PATH }}')"
+        echo "✅ Archive created at /tmp/project_backup.tar.gz"
+
+    - name: Transfer archive to backup server
+      run: |
+        TIMESTAMP=$(date +%F_%H-%M-%S)
+        BACKUP_FILENAME="project_backup_${TIMESTAMP}.tar.gz"
+        echo "🚚 Transferring archive to backup server as ${BACKUP_FILENAME}..."
+
+        scp "${{ secrets.REMOTE_USER }}@${{ secrets.REMOTE_HOST }}:/tmp/project_backup.tar.gz" \
+            "${{ secrets.BACKUP_USER }}@${{ secrets.BACKUP_SERVER }}:${{ secrets.BACKUP_PATH }}/${BACKUP_FILENAME}"
+
+        echo "✅ Backup transferred successfully to backup server."
