@@ -1,0 +1,37 @@
+name: Weekly Project Backup
+on:
+  schedule:
+    - cron: '30 16 * * 5'  # Runs every Friday at 10:00 PM IST (16:30 UTC)
+  workflow_dispatch:
+jobs:
+  project-backup:
+    runs-on: ubuntu-latest
+    env:
+      SSH_HOST: ${{ secrets.SSH_HOST }}
+      SSH_USER: ${{ secrets.SSH_USER }}
+    steps:
+      - name: Set up SSH client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y openssh-client
+      - name: Generate SSH key file
+        run: |
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > private_key.pem
+          chmod 600 private_key.pem
+      - name: SSH and create project backup on server
+        run: |
+          TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S")
+          PROJECT_TAR="project_backup_$TIMESTAMP.tar.gz"
+          ssh -i private_key.pem -o StrictHostKeyChecking=no "$SSH_USER@$SSH_HOST" "\
+            tar -czf /tmp/$PROJECT_TAR -C /var/www/html project_* && \
+            echo $PROJECT_TAR" > project_tar_name.txt
+      - name: Fetch project tarball from remote server
+        run: |
+          PROJECT_TAR=$(cat project_tar_name.txt)
+          echo "PROJECT_TAR=$PROJECT_TAR" >> $GITHUB_ENV
+          scp -i private_key.pem -o StrictHostKeyChecking=no "$SSH_USER@$SSH_HOST:/tmp/$PROJECT_TAR" .
+      - name: Clean up old backups on remote server (older than 2 days)
+        run: |
+          ssh -i private_key.pem -o StrictHostKeyChecking=no "$SSH_USER@$SSH_HOST" "\
+            find /var/www/html/database_backup/ -name 'project_backup_*.tar.gz' -type f -mtime +2 -exec rm -f {} \; && \
+            rm -f /tmp/project_backup_*.tar.g*
