@@ -69,5 +69,5 @@ jobs:
 
         echo "🚚 Transferring archive to backup server as ${BACKUP_FILENAME}..."
 
-        scp "${{ secrets.REMOTE_USER }}@${{ secrets.REMOTE_HOST }}:/tmp/project_backup.tar.gz" \
-            "${{ secrets.BACKUP_USER }}@${{ secrets.BACKUP_SERVER }}:${{ secrets.BACKUP_PATH }}/${BACKUP_FILENAME}"
+#        scp "${{ secrets.REMOTE_USER }}@${{ secrets.REMOTE_HOST }}:/tmp/project_backup.tar.gz" \
+#            "${{ secrets.BACKUP_USER }}@${{ secrets.BACKUP_SERVER }}:${{ secrets.BACKUP_PATH }}/${BACKUP_FILENAME}"
