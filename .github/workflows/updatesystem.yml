@@ -4,11 +4,7 @@ on:
   workflow_dispatch:
   schedule:
     - cron: '0 3 * * *'  # Every day at 3 AM UTC
-
-jobs:
-  backup:
-    runs-on: self-hosted  # Ensure this is a self-hosted runner
-
+    
     steps:
     - name: Validate Required Secrets
       run: |
