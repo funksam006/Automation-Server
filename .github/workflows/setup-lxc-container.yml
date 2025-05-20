@@ -23,9 +23,9 @@ jobs:
           configure-ssh: true
           python: true
 
-      - name: Get Container IP
-        id: ip
-        run: echo "Container IP: ${{ steps.lxc.outputs.ip }}"
+#      - name: Get Container IP
+#        id: ip
+#        run: echo "Container IP: ${{ steps.lxc.outputs.ip }}"
 
       - name: Install Magento
         run: |
