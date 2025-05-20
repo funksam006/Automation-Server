@@ -1,4 +1,4 @@
-name: Setup LXC Container
+name: Magento CI with LXC
 
 on:
   push:
@@ -11,13 +11,72 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Set up LXC container
         uses: lkiesow/setup-lxc-container@v1
+        id: lxc
         with:
-          dist: centos
-          release: 9-Stream
+          dist: ubuntu
+          release: 20.04
           name: magento-container
           configure-ssh: true
           python: true
+
+      - name: Get Container IP
+        id: ip
+        run: echo "Container IP: ${{ steps.lxc.outputs.ip }}"
+
+      - name: Install Magento
+        run: |
+          sudo lxc exec magento-container -- bash -c "
+            apt-get update &&
+            apt-get install -y curl unzip &&
+            curl -sS https://getcomposer.org/installer | php &&
+            mv composer.phar /usr/local/bin/composer &&
+            composer create-project --repository=https://repo.magento.com/ magento/project-community-edition /var/www/magento
+          "
+
+      - name: Set up Magento
+        run: |
+          sudo lxc exec magento-container -- bash -c "
+            cd /var/www/magento &&
+            php bin/magento setup:install \
+              --base-url=http://localhost/magento \
+              --db-host=localhost \
+              --db-name=magento \
+              --db-user=magento \
+              --db-password=magento123 \
+              --admin-firstname=Admin \
+              --admin-lastname=User \
+              --admin-email=admin@example.com \
+              --admin-user=admin \
+              --admin-password=admin123 \
+              --language=en_US \
+              --currency=USD \
+              --timezone=America/Chicago \
+              --use-rewrites=1
+          "
+
+      - name: Set permissions
+        run: |
+          sudo lxc exec magento-container -- bash -c "
+            chown -R www-data:www-data /var/www/magento &&
+            chmod -R 755 /var/www/magento
+          "
+
+      - name: Expose SSH via Cloudflare Tunnel
+        uses: hookdeck/action-sshd-cloudflared@v1
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+          ssh-user: root
+          ssh-port: 22
+          cloudflared-token: ${{ secrets.CLOUDFLARED_TOKEN }}
+
+      - name: Output SSH access details
+        run: |
+          echo "SSH into the container using the following details:"
+          echo "Host: ${{ steps.lxc.outputs.ip }}"
+          echo "User: root"
+          echo "Port: 22"
+          echo "Private Key: ${{ secrets.SSH_PRIVATE_KEY }}"
