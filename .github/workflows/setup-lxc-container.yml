@@ -1,0 +1,23 @@
+name: Setup LXC Container
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  setup-lxc:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up LXC container
+        uses: lkiesow/setup-lxc-container@v1
+        with:
+          dist: centos
+          release: 9-Stream
+          name: magento-container
+          configure-ssh: true
+          python: true
