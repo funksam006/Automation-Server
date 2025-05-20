@@ -65,7 +65,10 @@ jobs:
             chmod -R 755 /var/www/magento
           "
 
+      # Optional: Expose SSH via Cloudflare Tunnel
+      # Ensure you have defined CLOUDFLARED_TOKEN in your repository's secrets
       - name: Expose SSH via Cloudflare Tunnel
+        if: secrets.CLOUDFLARED_TOKEN != ''
         uses: hookdeck/action-sshd-cloudflared@v1
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
@@ -74,9 +77,9 @@ jobs:
           cloudflared-token: ${{ secrets.CLOUDFLARED_TOKEN }}
 
       - name: Output SSH access details
-  run: |
-    echo "SSH into the container using the following details:"
-    echo "Host: ${{ steps.lxc.outputs.ip }}"
-    echo "User: root"
-    echo "Port: 22"
-    echo "Private Key: ${{ secrets.SSH_PRIVATE_KEY }}"
+        run: |
+          echo "SSH into the container using the following details:"
+          echo "Host: ${{ steps.lxc.outputs.ip }}"
+          echo "User: root"
+          echo "Port: 22"
+          echo "Private Key: ${{ secrets.SSH_PRIVATE_KEY }}"
