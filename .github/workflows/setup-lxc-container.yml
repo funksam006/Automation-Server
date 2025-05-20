@@ -74,9 +74,9 @@ jobs:
           cloudflared-token: ${{ secrets.CLOUDFLARED_TOKEN }}
 
       - name: Output SSH access details
-        run: |
-          echo "SSH into the container using the following details:"
-          echo "Host: ${{ steps.lxc.outputs.ip }}"
-          echo "User: root"
-          echo "Port: 22"
-          echo "Private Key: ${{ secrets.SSH_PRIVATE_KEY }}"
+  run: |
+    echo "SSH into the container using the following details:"
+    echo "Host: ${{ steps.lxc.outputs.ip }}"
+    echo "User: root"
+    echo "Port: 22"
+    echo "Private Key: ${{ secrets.SSH_PRIVATE_KEY }}"
