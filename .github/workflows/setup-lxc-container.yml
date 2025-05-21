@@ -25,6 +25,13 @@ jobs:
           sudo lxd init --auto
           sudo lxc launch ubuntu:20.04 magento-container
 
+          - name: Configure DNS for LXD container
+  run: |
+    sudo lxc exec magento-container -- bash -c "echo 'nameserver 8.8.8.8' > /etc/resolv.conf"
+    sudo lxc exec magento-container -- bash -c "echo 'nameserver 8.8.4.4' >> /etc/resolv.conf"
+    sudo lxc exec magento-container -- bash -c "cat /etc/resolv.conf"
+
+
       - name: Install Magento
         run: |
           sudo lxc exec magento-container -- bash -c "
