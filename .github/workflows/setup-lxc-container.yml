@@ -26,6 +26,7 @@ jobs:
       - name: Install Magento
         run: |
           sudo lxc exec magento-container -- bash -c "
+          sudo apt-get install -y binutils
             apt-get update &&
             apt-get install -y curl unzip &&
             curl -sS https://getcomposer.org/installer | php &&
