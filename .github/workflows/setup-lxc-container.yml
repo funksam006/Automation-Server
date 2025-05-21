@@ -18,7 +18,7 @@ jobs:
         id: lxc
         with:
           dist: ubuntu
-          release: 20.04
+          release: 22.04
           name: magento-container
           configure-ssh: true
           python: true
@@ -27,7 +27,7 @@ jobs:
         run: |
           sudo lxc exec magento-container -- bash -c "
           sudo apt-get install -y binutils
-            apt-get update &&
+            apt-get update --fix-missing &&
             apt-get install -y curl unzip &&
             curl -sS https://getcomposer.org/installer | php &&
             mv composer.phar /usr/local/bin/composer &&
