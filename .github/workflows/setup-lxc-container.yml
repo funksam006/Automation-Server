@@ -1,4 +1,4 @@
-name: Magento CI with LXC
+name: Magento CI with LXC 
 
 on:
   push:
