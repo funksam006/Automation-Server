@@ -1,4 +1,4 @@
-name: Magento CI with LXD
+name: Magento CI with LXC
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
       - main
 
 jobs:
-  setup-lxd:
+  setup-lxc:
     runs-on: ubuntu-latest
 
     steps:
@@ -15,13 +15,15 @@ jobs:
 
       - name: Set up LXD
         uses: canonical/setup-lxd@v0.1.1
+        id: lxd
         with:
           channel: latest/stable
 
-      - name: Launch LXD container
+      - name: Launch LXC container
         run: |
+          sudo lxd waitready
           sudo lxd init --auto
-          lxc launch ubuntu:20.04 magento-container
+          sudo lxc launch ubuntu:20.04 magento-container
 
       - name: Install Magento
         run: |
