@@ -1,4 +1,4 @@
-name: Magento CI with LXC
+name: Magento CI with LXD
 
 on:
   push:
@@ -6,28 +6,27 @@ on:
       - main
 
 jobs:
-  setup-lxc:
+  setup-lxd:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Set up LXC container
-        uses: lkiesow/setup-lxc-container@v1
-        id: lxc
+      - name: Set up LXD
+        uses: canonical/setup-lxd@v0.1.1
         with:
-          dist: ubuntu
-          release: 22.04
-          name: magento-container
-          configure-ssh: true
-          python: true
+          channel: latest/stable
+
+      - name: Launch LXD container
+        run: |
+          sudo lxd init --auto
+          lxc launch ubuntu:20.04 magento-container
 
       - name: Install Magento
         run: |
           sudo lxc exec magento-container -- bash -c "
-          sudo apt-get install -y binutils
-            apt-get update --fix-missing &&
+            apt-get update &&
             apt-get install -y curl unzip &&
             curl -sS https://getcomposer.org/installer | php &&
             mv composer.phar /usr/local/bin/composer &&
@@ -64,4 +63,7 @@ jobs:
 
       - name: Output SSH access details
         run: |
-          echo
+          echo "SSH into the container using the following details:"
+          echo "Host: '${{ steps.lxd.outputs.ip }}'"
+          echo "User: root"
+          echo "Port: 22"
