@@ -28,8 +28,14 @@ jobs:
       - name: Configure DNS for LXD container
         run: |
           sudo lxc exec magento-container -- bash -c "
-            echo 'nameserver 8.8.8.8' > /etc/resolv.conf &&
-            echo 'nameserver 8.8.4.4' >> /etc/resolv.conf
+            # Check if /etc/resolv.conf exists
+            if [ ! -f /etc/resolv.conf ]; then
+              # Create /etc/resolv.conf with Google's DNS
+              echo 'nameserver 8.8.8.8' > /etc/resolv.conf
+              echo 'nameserver 8.8.4.4' >> /etc/resolv.conf
+            fi
+            # Verify DNS resolution
+            cat /etc/resolv.conf
           "
 
       - name: Install Magento
