@@ -1,4 +1,4 @@
-name: Magento CI with LXC 
+name: Magento CI with LXC
 
 on:
   push:
@@ -22,10 +22,6 @@ jobs:
           name: magento-container
           configure-ssh: true
           python: true
-
-#      - name: Get Container IP
-#        id: ip
-#        run: echo "Container IP: ${{ steps.lxc.outputs.ip }}"
 
       - name: Install Magento
         run: |
@@ -67,7 +63,4 @@ jobs:
 
       - name: Output SSH access details
         run: |
-          echo "SSH into the container using the following details:"
-          echo "Host: '${{ steps.lxc.outputs.ip }}'"
-          echo "User: root"
-          echo "Port: 22"
+          echo
