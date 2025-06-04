@@ -1,7 +1,6 @@
 FROM debian:bullseye 
-
 RUN apt update && \
-    apt install -y iproute2 iptables wireguard-tools curl mysql-client unzip
+    apt install -y iproute2 iptables wireguard-tools curl default-mysql-client unzip
 
 RUN curl -LO https://github.com/cloudflare/boringtun/releases/download/v0.3.0/boringtun-linux-amd64 && \
     chmod +x boringtun-linux-amd64 && mv boringtun-linux-amd64 /usr/local/bin/boringtun
