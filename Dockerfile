@@ -1,4 +1,4 @@
-FROM debian:bullseye
+FROM debian:bullseye 
 
 RUN apt update && \
     apt install -y iproute2 iptables wireguard-tools curl mysql-client unzip
