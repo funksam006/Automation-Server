@@ -1,0 +1,55 @@
+name: Build and Deploy Docker Images
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repo
+      uses: actions/checkout@v3
+
+    - name: Set up Docker
+      uses: docker/setup-buildx-action@v3
+
+    - name: Log in to DockerHub (optional)
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+
+    - name: Build Docker Images
+      run: |
+        docker build -t planmans_dashboard_image ./Dashboard
+        docker build -t planmans_backend_image ./Backend
+        docker tag planmans_dashboard_image youruser/planmans_dashboard_image:latest
+        docker tag planmans_backend_image youruser/planmans_backend_image:latest
+
+    - name: Save Docker Images Locally
+      run: |
+        docker save -o planmans_dashboard_image.tar planmans_dashboard_image
+        docker save -o planmans_backend_image.tar planmans_backend_image
+
+    - name: Upload Images as Artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: docker-images
+        path: |
+          planmans_dashboard_image.tar
+          planmans_backend_image.tar
+
+    # Optional: Trigger backup/restore script on your server over SSH
+    - name: SSH and Run Backup Script
+      uses: appleboy/ssh-action@v1.0.0
+      with:
+        host: ${{ secrets.REMOTE_HOST }}
+        username: ${{ secrets.REMOTE_USER }}
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        script: |
+          cd /home/youruser/
+          bash backup_and_restore.sh
